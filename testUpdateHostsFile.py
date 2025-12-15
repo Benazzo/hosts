@@ -28,6 +28,7 @@ from updateHostsFile import (
     exclude_domain,
     flush_dns_cache,
     gather_custom_exclusions,
+    get_all_applications,
     get_defaults,
     get_file_by_url,
     is_valid_user_provided_domain_format,
@@ -755,6 +756,57 @@ class TestUpdateSourcesData(Base):
         ]
         self.assertEqual(new_sources_data, expected)
         self.assert_called_once(mock_join_robust)
+
+
+class TestGetAllApplications(Base):
+    def setUp(self):
+        Base.setUp(self)
+        self.datapath = "data"
+        self.extensionspath = "extensions"
+        self.source_data_filename = "update.json"
+
+    @mock.patch(
+        "updateHostsFile.recursive_glob",
+        side_effect=[
+            ["data/source1/update.json", "data/source2/update.json"],
+            ["extensions/ext1/update.json"],
+        ],
+    )
+    @mock.patch(
+        "json.load",
+        side_effect=[
+            {"name": "Source1", "url": "http://example1.com"},
+            {"name": "Source2", "url": "http://example2.com"},
+            {"name": "Extension1", "url": "http://example3.com"},
+        ],
+    )
+    def test_get_all_applications(self, mock_json_load, mock_glob):
+        mock_file = mock.mock_open()
+        with mock.patch("builtins.open", mock_file):
+            applications = get_all_applications(
+                datapath=self.datapath,
+                extensionspath=self.extensionspath,
+                sourcedatafilename=self.source_data_filename,
+            )
+
+        self.assertEqual(len(applications), 3)
+        self.assertEqual(applications[0]["name"], "Source1")
+        self.assertEqual(applications[0]["type"], "unified")
+        self.assertEqual(applications[0]["path"], "data/source1/update.json")
+        self.assertEqual(applications[1]["name"], "Source2")
+        self.assertEqual(applications[1]["type"], "unified")
+        self.assertEqual(applications[2]["name"], "Extension1")
+        self.assertEqual(applications[2]["type"], "extension")
+
+    @mock.patch("updateHostsFile.recursive_glob", return_value=[])
+    def test_get_all_applications_empty(self, mock_glob):
+        applications = get_all_applications(
+            datapath=self.datapath,
+            extensionspath=self.extensionspath,
+            sourcedatafilename=self.source_data_filename,
+        )
+
+        self.assertEqual(len(applications), 0)
 
 
 class TestUpdateAllSources(BaseStdout):
