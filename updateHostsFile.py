@@ -801,7 +801,7 @@ def get_all_applications(**params):
                     updatedata["path"] = source
                     sources.append(updatedata)
             except Exception as e:
-                print(f"Error reading {source_type} source {source}: {e}")
+                print_failure(f"Error reading {source_type} source {source}: {e}")
         return sources
 
     applications = []
