@@ -288,7 +288,8 @@ def main():
             print(f"License: {app.get('license', 'N/A')}")
             print(f"Update Frequency: {app.get('frequency', 'N/A')}")
             print(f"Issues: {app.get('issues', 'N/A')}")
-            print(f"Paused: {app.get('pause', False)}")
+            paused = "Yes" if app.get('pause', False) else "No"
+            print(f"Paused: {paused}")
             print(f"Path: {app.get('path', 'N/A')}")
             print("-" * 80)
 
