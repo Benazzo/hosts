@@ -774,32 +774,50 @@ def get_all_applications(**params):
         A list of dictionaries containing metadata for each data source.
     """
 
+    def read_sources(path, source_type, sourcedatafilename):
+        """
+        Helper function to read sources from a directory.
+
+        Parameters
+        ----------
+        path : str
+            The directory path to search for sources.
+        source_type : str
+            The type of source (unified or extension).
+        sourcedatafilename : str
+            The filename to search for (e.g., update.json).
+
+        Returns
+        -------
+        sources : list
+            A list of dictionaries containing metadata for each source.
+        """
+        sources = []
+        for source in sort_sources(recursive_glob(path, sourcedatafilename)):
+            try:
+                with open(source, "r", encoding="UTF-8") as updatefile:
+                    updatedata = json.load(updatefile)
+                    updatedata["type"] = source_type
+                    updatedata["path"] = source
+                    sources.append(updatedata)
+            except Exception as e:
+                print(f"Error reading {source_type} source {source}: {e}")
+        return sources
+
     applications = []
     sourcedatafilename = params.get("sourcedatafilename", "update.json")
     datapath = params.get("datapath", path_join_robust(BASEDIR_PATH, "data"))
-    extensionspath = params.get("extensionspath", path_join_robust(BASEDIR_PATH, "extensions"))
+    extensionspath = params.get(
+        "extensionspath", path_join_robust(BASEDIR_PATH, "extensions")
+    )
 
     # Get unified hosts sources
-    for source in sort_sources(recursive_glob(datapath, sourcedatafilename)):
-        try:
-            with open(source, "r", encoding="UTF-8") as updatefile:
-                updatedata = json.load(updatefile)
-                updatedata["type"] = "unified"
-                updatedata["path"] = source
-                applications.append(updatedata)
-        except Exception as e:
-            print(f"Error reading {source}: {e}")
+    applications.extend(read_sources(datapath, "unified", sourcedatafilename))
 
     # Get extension sources
-    for source in sort_sources(recursive_glob(extensionspath, sourcedatafilename)):
-        try:
-            with open(source, "r", encoding="UTF-8") as updatefile:
-                updatedata = json.load(updatefile)
-                updatedata["type"] = "extension"
-                updatedata["path"] = source
-                applications.append(updatedata)
-        except Exception as e:
-            print(f"Error reading {source}: {e}")
+    applications.extend(
+        read_sources(extensionspath, "extension", sourcedatafilename)
+    )
 
     return applications
 
