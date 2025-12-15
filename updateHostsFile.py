@@ -228,6 +228,14 @@ def main():
         default=path_join_robust(BASEDIR_PATH, "blacklist"),
         help="Blacklist file to use while generating hosts files.",
     )
+    parser.add_argument(
+        "--list-applications",
+        "-l",
+        dest="listapplications",
+        default=False,
+        action="store_true",
+        help="List all data source applications and their metadata.",
+    )
 
     global settings
 
@@ -258,6 +266,35 @@ def main():
     exclusionregexes = settings["exclusionregexes"]
     sourcedatafilename = settings["sourcedatafilename"]
     nounifiedhosts = settings["nounifiedhosts"]
+
+    # Handle list applications request
+    if settings.get("listapplications", False):
+        applications = get_all_applications(
+            datapath=datapath,
+            extensionspath=extensionspath,
+            sourcedatafilename=sourcedatafilename,
+        )
+
+        print("\n" + "=" * 80)
+        print("DATA SOURCE APPLICATIONS")
+        print("=" * 80 + "\n")
+
+        for app in applications:
+            print(f"Name: {app.get('name', 'N/A')}")
+            print(f"Type: {app.get('type', 'N/A')}")
+            print(f"Description: {app.get('description', 'N/A')}")
+            print(f"Home URL: {app.get('homeurl', 'N/A')}")
+            print(f"Data URL: {app.get('url', 'N/A')}")
+            print(f"License: {app.get('license', 'N/A')}")
+            print(f"Update Frequency: {app.get('frequency', 'N/A')}")
+            print(f"Issues: {app.get('issues', 'N/A')}")
+            paused = "Yes" if app.get('pause', False) else "No"
+            print(f"Paused: {paused}")
+            print(f"Path: {app.get('path', 'N/A')}")
+            print("-" * 80)
+
+        print(f"\nTotal applications: {len(applications)}")
+        return
 
     updatesources = prompt_for_update(freshen=settings["freshen"], updateauto=auto)
     if updatesources:
@@ -716,6 +753,74 @@ def update_sources_data(sourcesdata, **sourcesparams):
                 updatefile.close()
 
     return sourcesdata
+
+
+def get_all_applications(**params):
+    """
+    Retrieve metadata for all data source applications.
+
+    Parameters
+    ----------
+    params : kwargs
+        Dictionary providing parameters for retrieving applications.
+        Currently, those fields are:
+
+        1) datapath
+        2) extensionspath
+        3) sourcedatafilename
+
+    Returns
+    -------
+    applications : list
+        A list of dictionaries containing metadata for each data source.
+    """
+
+    def read_sources(path, source_type, sourcedatafilename):
+        """
+        Helper function to read sources from a directory.
+
+        Parameters
+        ----------
+        path : str
+            The directory path to search for sources.
+        source_type : str
+            The type of source (unified or extension).
+        sourcedatafilename : str
+            The filename to search for (e.g., update.json).
+
+        Returns
+        -------
+        sources : list
+            A list of dictionaries containing metadata for each source.
+        """
+        sources = []
+        for source in sort_sources(recursive_glob(path, sourcedatafilename)):
+            try:
+                with open(source, "r", encoding="UTF-8") as updatefile:
+                    updatedata = json.load(updatefile)
+                    updatedata["type"] = source_type
+                    updatedata["path"] = source
+                    sources.append(updatedata)
+            except Exception as e:
+                print_failure(f"Error reading {source_type} source {source}: {e}")
+        return sources
+
+    applications = []
+    sourcedatafilename = params.get("sourcedatafilename", "update.json")
+    datapath = params.get("datapath", path_join_robust(BASEDIR_PATH, "data"))
+    extensionspath = params.get(
+        "extensionspath", path_join_robust(BASEDIR_PATH, "extensions")
+    )
+
+    # Get unified hosts sources
+    applications.extend(read_sources(datapath, "unified", sourcedatafilename))
+
+    # Get extension sources
+    applications.extend(
+        read_sources(extensionspath, "extension", sourcedatafilename)
+    )
+
+    return applications
 
 
 def jsonarray(json_array_string):
